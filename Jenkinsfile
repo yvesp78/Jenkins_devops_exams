@@ -163,7 +163,7 @@ pipeline {
                     cat $KUBECONFIG > .kube/config
                     cp charts/values.yaml values.yml
                     sed -i "s+tag.*+tag: ${DOCKER_TAG}+g" values.yml
-                    helm upgrade --install app ./charts --values=values.yml --namespace dev
+                    helm upgrade --install app ./charts --values=charts/values.yaml --values=charts/values-dev.yaml --namespace dev
                     '''
                 }
             }
@@ -181,7 +181,7 @@ pipeline {
                     cat $KUBECONFIG > .kube/config
                     cp charts/values.yaml values.yml
                     sed -i "s+tag.*+tag: ${DOCKER_TAG}+g" values.yml
-                    helm upgrade --install app ./charts --values=values.yml --namespace staging
+                    helm upgrade --install app ./charts --values=charts/values.yaml --values=charts/values-staging.yaml --namespace staging
                     '''
                 }
             }
@@ -203,7 +203,7 @@ pipeline {
                     cat $KUBECONFIG > .kube/config
                     cp charts/values.yaml values.yml
                     sed -i "s+tag.*+tag: ${DOCKER_TAG}+g" values.yml
-                    helm upgrade --install app ./charts --values=values.yml --namespace prod
+                    helm upgrade --install app ./charts --values=charts/values.yaml --values=charts/values-prod.yaml --namespace prod
                     '''
                 }
             }
