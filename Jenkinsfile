@@ -28,12 +28,13 @@ pipeline {
             }
         }
 
-        stage('Docker Compose Build') {
+        stage('Docker Compose Build & Push') {
             steps {
                 dir("${APP_DIR}") {
                     sh """
                     echo "=== Construction des images via docker-compose ==="
                     docker-compose build
+                    """
                 }
             }
         }
