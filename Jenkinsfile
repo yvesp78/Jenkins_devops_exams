@@ -29,30 +29,44 @@ pipeline {
         }
 
         stage('Docker Compose Build & Verify API') {
-            steps {
-                dir("${APP_DIR}") {
-                    sh """
-                    echo "=== Construction et démarrage des conteneurs via docker-compose ==="
-                    docker compose up -d
+            parallel {
+                stage('Start Docker Compose') {
+                    steps {
+                        dir("${APP_DIR}") {
+                            sh """
+                            echo "=== Construction et démarrage des conteneurs via docker-compose ==="
+                            docker compose up -d
+                            """
+                        }
+                    }
+                }
 
-                    echo "=== Vérification que l'API répond avec HTTP 200 ==="
-                    RETRIES=10
-                    until [ \$RETRIES -eq 0 ]; do
-                        HTTP_CODE=\$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8085)
-                        if [ "\$HTTP_CODE" -eq 200 ]; then
-                            echo "✅ API répond avec HTTP 200"
-                            break
-                        fi
-                        echo "⚠️ API non disponible encore, attente..."
-                        sleep 5
-                        RETRIES=\$((RETRIES-1))
-                    done
-
-                    if [ "\$HTTP_CODE" -ne 200 ]; then
-                        echo "❌ API ne répond pas après plusieurs tentatives"
-                        exit 1
-                    fi
-                    """
+                stage('API Health Check') {
+                    steps {
+                        timeout(time: 2, unit: 'MINUTES') {
+                            script {
+                                def success = false
+                                def retries = 24  // 24 x 5sec = 2 minutes
+                                while(retries > 0 && !success) {
+                                    def httpCode = sh(
+                                        script: 'curl -s -o /dev/null -w "%{http_code}" http://localhost:8085',
+                                        returnStdout: true
+                                    ).trim()
+                                    if (httpCode == "200") {
+                                        echo "✅ API répond avec HTTP 200"
+                                        success = true
+                                    } else {
+                                        echo "⚠️ API non disponible encore, attente 5s..."
+                                        sleep 5
+                                        retries--
+                                    }
+                                }
+                                if (!success) {
+                                    error("❌ API ne répond pas après 2 minutes")
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
