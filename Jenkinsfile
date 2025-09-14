@@ -28,15 +28,12 @@ pipeline {
             }
         }
 
-        stage('Docker Compose Build & Push') {
+        stage('Docker Compose Build') {
             steps {
                 dir("${APP_DIR}") {
                     sh """
                     echo "=== Construction des images via docker-compose ==="
                     docker-compose build
-                    echo "=== Push vers DockerHub ==="
-                    docker-compose push
-                    """
                 }
             }
         }
