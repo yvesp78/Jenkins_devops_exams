@@ -28,12 +28,30 @@ pipeline {
             }
         }
 
-        stage('Docker Compose Build & Push') {
+        stage('Docker Compose Build & Verify API') {
             steps {
                 dir("${APP_DIR}") {
                     sh """
-                    echo "=== Construction des images via docker-compose ==="
-                    docker compose up
+                    echo "=== Construction et démarrage des conteneurs via docker-compose ==="
+                    docker compose up -d
+
+                    echo "=== Vérification que l'API répond avec HTTP 200 ==="
+                    RETRIES=10
+                    until [ \$RETRIES -eq 0 ]; do
+                        HTTP_CODE=\$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8085)
+                        if [ "\$HTTP_CODE" -eq 200 ]; then
+                            echo "✅ API répond avec HTTP 200"
+                            break
+                        fi
+                        echo "⚠️ API non disponible encore, attente..."
+                        sleep 5
+                        RETRIES=\$((RETRIES-1))
+                    done
+
+                    if [ "\$HTTP_CODE" -ne 200 ]; then
+                        echo "❌ API ne répond pas après plusieurs tentatives"
+                        exit 1
+                    fi
                     """
                 }
             }
