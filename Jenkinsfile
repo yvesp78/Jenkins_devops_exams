@@ -222,10 +222,13 @@ pipeline {
             }
         }
 
-        stage('Deploiement en prod') {
+        stage('Check current branch') {
             steps {
                 echo "Current branch: ${env.BRANCH_NAME}"
             }
+        }
+
+        stage('Deploiement en prod') {
             when {
                 branch 'master'
             }
@@ -233,8 +236,11 @@ pipeline {
                 KUBECONFIG = credentials("config")
             }
             steps {
-                input message: 'Voulez-vous déployer en production ?', ok: 'Oui'
                 script {
+                    // Input pour l'approbation manuelle
+                    input message: 'Voulez-vous déployer en production ?', ok: 'Oui'
+
+                    // Déploiement Helm
                     sh '''
                     rm -Rf .kube
                     mkdir .kube
@@ -246,8 +252,6 @@ pipeline {
                 }
             }
         }
-
-    }
 
     post {
         success {
