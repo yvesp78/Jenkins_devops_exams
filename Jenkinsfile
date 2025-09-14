@@ -148,6 +148,28 @@ pipeline {
             }
         }
 
+        stage('Cleanup existing service before deploy') {
+            steps {
+                script {
+                    def NODEPORTS = [dev:30007, staging:30017, prod:30027]
+                    def TARGET_NS = "dev"  // ou "staging", "prod" selon le stage de déploiement
+
+                    // Vérifie si le service existe
+                    def svcExists = sh(
+                        script: "kubectl -n ${TARGET_NS} get svc app-fastapiapp --ignore-not-found",
+                        returnStatus: true
+                    ) == 0
+
+                    if (svcExists) {
+                        echo "⚠️ Service app-fastapiapp existe déjà dans ${TARGET_NS}, suppression pour éviter conflit de NodePort..."
+                        sh "kubectl -n ${TARGET_NS} delete svc app-fastapiapp"
+                    } else {
+                        echo "Aucun service existant dans ${TARGET_NS}, déploiement possible."
+                    }
+                }
+            }
+        }
+
 
         // ===================== DEPLOYMENT =====================
         stage('Deploiement en dev') {
