@@ -28,43 +28,47 @@ pipeline {
             }
         }
 
-        stage('Docker Compose Build & Verify API') {
-            parallel {
-                stage('Start Docker Compose') {
-                    steps {
-                        dir("${APP_DIR}") {
-                            sh """
-                            echo "=== Construction et démarrage des conteneurs via docker-compose ==="
-                            docker compose up -d
-                            """
-                        }
-                    }
-                }
+        stage('Docker Compose Up') {
+            steps {
+                dir("${APP_DIR}") {
+                    sh """
+                    echo "=== Construction et démarrage des conteneurs via docker-compose ==="
+                    docker compose up -d
 
-                stage('API Health Check') {
-                    steps {
-                        timeout(time: 2, unit: 'MINUTES') {
-                            script {
-                                def success = false
-                                def retries = 24  // 24 x 5sec = 2 minutes
-                                while(retries > 0 && !success) {
-                                    def httpCode = sh(
-                                        script: 'curl -s -o /dev/null -w "%{http_code}" http://63.35.53.134:8085/api/v1/movies/docs',
-                                        returnStdout: true
-                                    ).trim()
-                                    if (httpCode == "200") {
-                                        echo "✅ API répond avec HTTP 200"
-                                        success = true
-                                    } else {
-                                        echo "⚠️ API non disponible encore, attente 5s..."
-                                        sleep 5
-                                        retries--
-                                    }
-                                }
-                                if (!success) {
-                                    error("❌ API ne répond pas après 2 minutes")
-                                }
+                    # Attendre que le conteneur principal soit en running
+                    SERVICE_NAME="app"  # remplacer par le nom du service dans docker-compose.yml
+                    echo "⏱️ Attente que le conteneur \$SERVICE_NAME soit en running..."
+                    until [ \$(docker inspect -f '{{.State.Running}}' \$(docker compose ps -q \$SERVICE_NAME)) = "true" ]; do
+                        sleep 2
+                    done
+                    echo "✅ Conteneur \$SERVICE_NAME en running"
+                    """
+                }
+            }
+        }
+
+        stage('API Health Check') {
+            steps {
+                timeout(time: 2, unit: 'MINUTES') {
+                    script {
+                        def success = false
+                        def retries = 24  // 24 x 5 sec = 2 minutes
+                        while(retries > 0 && !success) {
+                            def httpCode = sh(
+                                script: 'curl -s -o /dev/null -w "%{http_code}" http://63.35.53.134:8085/api/v1/movies/docs',
+                                returnStdout: true
+                            ).trim()
+                            if (httpCode == "200") {
+                                echo "✅ API répond avec HTTP 200"
+                                success = true
+                            } else {
+                                echo "⚠️ API non disponible encore, attente 5s..."
+                                sleep 5
+                                retries--
                             }
+                        }
+                        if (!success) {
+                            error("❌ API ne répond pas après 2 minutes")
                         }
                     }
                 }
