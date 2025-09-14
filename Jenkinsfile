@@ -129,30 +129,25 @@ pipeline {
                 script {
                     dir("${APP_DIR}") {
                         sh """
-                        echo "=== Build de l'image via Docker Compose ==="
+                        echo "=== Build des images via Docker Compose ==="
                         docker compose build
 
-                        echo "=== Récupération du nom réel de l'image générée par Docker Compose ==="
-                        IMAGE_ID=\$(docker images --format '{{.Repository}}:{{.Tag}}' | grep "${APP_DIR}_${SERVICE_NAME}:latest")
-
-                        if [ -z "\$IMAGE_ID" ]; then
-                            echo "❌ Impossible de trouver l'image générée par docker compose"
-                            exit 1
-                        fi
-
-                        echo "=== Tag de l'image pour DockerHub ==="
-                        docker tag \$IMAGE_ID ${DOCKER_USER}/${DOCKER_IMAGE}:${DOCKER_TAG}
-
                         echo "=== Login DockerHub ==="
-                        echo $DOCKER_PASS | docker login -u ${DOCKER_USER} --password-stdin
+                        echo \$DOCKER_PASS | docker login -u ${DOCKER_USER} --password-stdin
 
-                        echo "=== Push de l'image Docker ==="
-                        docker push ${DOCKER_USER}/${DOCKER_IMAGE}:${DOCKER_TAG}
+                        echo "=== Retag & Push des images générées ==="
+                        for IMAGE in \$(docker images --format '{{.Repository}}:{{.Tag}}' | grep 'jenkins_devops_exams_pipeline-'); do
+                            SERVICE_NAME=\$(echo \$IMAGE | cut -d':' -f1 | sed 's/jenkins_devops_exams_pipeline-//')
+                            echo "🔄 Retag \$IMAGE -> ${DOCKER_USER}/\${SERVICE_NAME}:${DOCKER_TAG}"
+                            docker tag \$IMAGE ${DOCKER_USER}/\${SERVICE_NAME}:${DOCKER_TAG}
+                            docker push ${DOCKER_USER}/\${SERVICE_NAME}:${DOCKER_TAG}
+                        done
                         """
                     }
                 }
             }
         }
+
 
         // ===================== DEPLOYMENT =====================
         stage('Deploiement en dev') {
