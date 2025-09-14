@@ -148,27 +148,40 @@ pipeline {
             }
         }
 
-        stage('Cleanup existing service before deploy') {
+        stage('Cleanup services on NodePorts') {
             steps {
                 script {
-                    def NODEPORTS = [dev:30007, staging:30017, prod:30027]
-                    def TARGET_NS = "dev"  // ou "staging", "prod" selon le stage de déploiement
+                    def ports = [30007, 30017, 30027]
 
-                    // Vérifie si le service existe
-                    def svcExists = sh(
-                        script: "kubectl -n ${TARGET_NS} get svc app-fastapiapp --ignore-not-found",
-                        returnStatus: true
-                    ) == 0
+                    ports.each { port ->
+                        echo "Vérification des services utilisant le port ${port}..."
+                        
+                        // Liste les services existants sur ce port
+                        def svcList = sh(
+                            script: "kubectl get svc -A | grep ${port} || true",
+                            returnStdout: true
+                        ).trim()
 
-                    if (svcExists) {
-                        echo "⚠️ Service app-fastapiapp existe déjà dans ${TARGET_NS}, suppression pour éviter conflit de NodePort..."
-                        sh "kubectl -n ${TARGET_NS} delete svc app-fastapiapp"
-                    } else {
-                        echo "Aucun service existant dans ${TARGET_NS}, déploiement possible."
+                        if (svcList) {
+                            echo "⚠️ Services détectés sur le port ${port} :"
+                            echo svcList
+
+                            // Extraire les namespaces et noms de services et les supprimer
+                            svcList.split("\n").each { line ->
+                                def parts = line.split(/\s+/)
+                                def ns = parts[0]
+                                def svcName = parts[1]
+                                echo "Suppression du service ${svcName} dans le namespace ${ns}..."
+                                sh "kubectl -n ${ns} delete svc ${svcName} || true"
+                            }
+                        } else {
+                            echo "✅ Aucun service actif sur le port ${port}."
+                        }
                     }
                 }
             }
         }
+
 
 
         // ===================== DEPLOYMENT =====================
