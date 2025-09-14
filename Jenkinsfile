@@ -1,5 +1,5 @@
 pipeline {
-    agent any  // ou label 'docker-helm-agent' si tu as un agent spécifique
+    agent any
 
     environment {
         GITHUB_REPO = "https://github.com/yvesp78/Jenkins_devops_exams.git"
@@ -9,6 +9,9 @@ pipeline {
         IMAGE_TAG = "1.0.0"
         HELM_CHART_DIR = "helm-chart"
         JENKINS_USER = "jenkins"
+        SERVICE_NAME = "web" // Nom exact du service dans docker-compose.yml
+        API_URL = "http://63.35.53.134:8085/api/v1/movies/docs"
+        NAMESPACES = "dev qa staging prod"
     }
 
     stages {
@@ -20,7 +23,6 @@ pipeline {
 
         stage('Setup Environment') {
             steps {
-                // Rendre ton script exécutable et l'exécuter
                 sh """
                 chmod +x ./setup_dev_env.sh
                 ./setup_dev_env.sh
@@ -35,13 +37,17 @@ pipeline {
                     echo "=== Construction et démarrage des conteneurs via docker-compose ==="
                     docker compose up -d
 
-                    # Attendre que le conteneur principal soit en running
-                    SERVICE_NAME="app"  # remplacer par le nom du service dans docker-compose.yml
-                    echo "⏱️ Attente que le conteneur \$SERVICE_NAME soit en running..."
-                    until [ \$(docker inspect -f '{{.State.Running}}' \$(docker compose ps -q \$SERVICE_NAME)) = "true" ]; do
+                    echo "⏱️ Attente que le conteneur ${SERVICE_NAME} soit en running..."
+                    CONTAINER_ID=\$(docker compose ps -q ${SERVICE_NAME})
+                    if [ -z "\$CONTAINER_ID" ]; then
+                        echo "❌ Conteneur ${SERVICE_NAME} non trouvé"
+                        exit 1
+                    fi
+
+                    until [ \$(docker inspect -f '{{.State.Running}}' \$CONTAINER_ID) = "true" ]; do
                         sleep 2
                     done
-                    echo "✅ Conteneur \$SERVICE_NAME en running"
+                    echo "✅ Conteneur ${SERVICE_NAME} en running"
                     """
                 }
             }
@@ -55,7 +61,7 @@ pipeline {
                         def retries = 24  // 24 x 5 sec = 2 minutes
                         while(retries > 0 && !success) {
                             def httpCode = sh(
-                                script: 'curl -s -o /dev/null -w "%{http_code}" http://63.35.53.134:8085/api/v1/movies/docs',
+                                script: "curl -s -o /dev/null -w '%{http_code}' ${API_URL}",
                                 returnStdout: true
                             ).trim()
                             if (httpCode == "200") {
@@ -72,6 +78,16 @@ pipeline {
                         }
                     }
                 }
+            }
+        }
+
+        stage('Helm Deploy Dev') {
+            steps {
+                sh """
+                echo "=== Déploiement avec Helm dans namespace dev ==="
+                helm upgrade --install ${IMAGE_NAME} ${HELM_CHART_DIR} -n dev \
+                    --set image.repository=${DOCKER_USER}/${IMAGE_NAME},image.tag=${IMAGE_TAG}
+                """
             }
         }
 
