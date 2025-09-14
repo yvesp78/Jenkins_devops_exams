@@ -92,19 +92,19 @@ pipeline {
                 sh "k3s kubectl get pods -n dev"
             }
         }
-    }
 
         stage('API Tests') {
-        steps {
-            dir("${APP_DIR}") {
-                sh """
-                echo "=== Installation des dépendances Python ==="
-                python3 -m pip install --upgrade pip
-                pip3 install -r requirements.txt
+            steps {
+                dir("${APP_DIR}") {
+                    sh """
+                    echo "=== Installation des dépendances Python ==="
+                    python3 -m pip install --upgrade pip
+                    pip3 install -r requirements.txt
 
-                echo "=== Lancement des tests API ==="
-                python3 api_test.py
-                """
+                    echo "=== Lancement des tests API ==="
+                    python3 api_test.py
+                    """
+                }
             }
         }
     }
