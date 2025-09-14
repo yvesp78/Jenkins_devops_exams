@@ -37,7 +37,7 @@ pipeline {
 
                 stage('Checkout') {
                     steps {
-                        git branch: 'main', url: "${GITHUB_REPO}"
+                        git branch: 'master', url: "${GITHUB_REPO}"
                     }
                 }
 
@@ -223,8 +223,11 @@ pipeline {
         }
 
         stage('Deploiement en prod') {
+            steps {
+                echo "Current branch: ${env.BRANCH_NAME}"
+            }
             when {
-                branch 'main'
+                branch 'master'
             }
             environment {
                 KUBECONFIG = credentials("config")
