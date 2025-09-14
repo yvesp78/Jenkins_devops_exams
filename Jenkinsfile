@@ -9,7 +9,7 @@ pipeline {
         DOCKER_TAG = "1.0.0"
         HELM_CHART_DIR = "helm-chart"
         JENKINS_USER = "jenkins"
-        SERVICE_NAME = "web"
+        SERVICE_NAME = "web" // Nom exact du service dans docker-compose.yml
         API_URL = "http://63.35.53.134:8085/api/v1/movies/docs"
         NAMESPACES = "dev qa staging prod"
     }
@@ -127,10 +127,21 @@ pipeline {
             }
             steps {
                 script {
-                    sh '''
-                    docker login -u ${DOCKER_USER} -p $DOCKER_PASS
-                    docker push ${DOCKER_USER}/${DOCKER_IMAGE}:${DOCKER_TAG}
-                    '''
+                    dir("${APP_DIR}") {
+                        sh """
+                        echo "=== Build de l'image via Docker Compose ==="
+                        docker compose build
+
+                        echo "=== Tag de l'image pour DockerHub ==="
+                        docker tag ${SERVICE_NAME} ${DOCKER_USER}/${DOCKER_IMAGE}:${DOCKER_TAG}
+
+                        echo "=== Login DockerHub ==="
+                        echo $DOCKER_PASS | docker login -u ${DOCKER_USER} --password-stdin
+
+                        echo "=== Push de l'image Docker ==="
+                        docker push ${DOCKER_USER}/${DOCKER_IMAGE}:${DOCKER_TAG}
+                        """
+                    }
                 }
             }
         }
@@ -175,7 +186,7 @@ pipeline {
 
         stage('Deploiement en prod') {
             when {
-                branch 'main' // Se déploie seulement si on est sur la branche main
+                branch 'main'
             }
             environment {
                 KUBECONFIG = credentials("config")
