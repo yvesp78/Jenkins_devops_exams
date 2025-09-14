@@ -185,6 +185,19 @@ pipeline {
 
 
         // ===================== DEPLOYMENT =====================
+       
+       
+        stage('Checkout Master') {
+            steps {
+                git branch: 'master', url: "${GITHUB_REPO}"
+                script {
+                    // Détecte la branche courante et l’affecte à BRANCH_NAME
+                    env.BRANCH_NAME = sh(script: "git rev-parse --abbrev-ref HEAD", returnStdout: true).trim()
+                    echo "Current branch: ${env.BRANCH_NAME}"
+                }
+            }
+        }
+
         stage('Deploiement en dev') {
             environment {
                 KUBECONFIG = credentials("config")
