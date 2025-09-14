@@ -15,6 +15,24 @@ pipeline {
     }
 
     stages {
+        stage('Cleanup Docker Containers') {
+            steps {
+                sh """
+                echo "=== Arrêt et suppression de tous les conteneurs Docker existants ==="
+                CONTAINERS=\$(docker ps -aq)
+                if [ ! -z "\$CONTAINERS" ]; then
+                    echo "⚠️ Conteneurs détectés, arrêt en cours..."
+                    docker stop \$CONTAINERS
+                    echo "Suppression des conteneurs..."
+                    docker rm \$CONTAINERS
+                    echo "✅ Tous les conteneurs arrêtés et supprimés"
+                else
+                    echo "✅ Aucun conteneur à arrêter"
+                fi
+                """
+            }
+        }
+
         stage('Checkout') {
             steps {
                 git branch: 'main', url: "${GITHUB_REPO}"
@@ -36,6 +54,18 @@ pipeline {
                     sh """
                     echo "=== Construction et démarrage des conteneurs via docker-compose ==="
                     docker compose up -d
+
+                    echo "⏱️ Attente que le conteneur ${SERVICE_NAME} soit en running..."
+                    CONTAINER_ID=\$(docker compose ps -q ${SERVICE_NAME})
+                    if [ -z "\$CONTAINER_ID" ]; then
+                        echo "❌ Conteneur ${SERVICE_NAME} non trouvé"
+                        exit 1
+                    fi
+
+                    until [ \$(docker inspect -f '{{.State.Running}}' \$CONTAINER_ID) = "true" ]; do
+                        sleep 2
+                    done
+                    echo "✅ Conteneur ${SERVICE_NAME} en running"
                     """
                 }
             }
@@ -66,16 +96,6 @@ pipeline {
                         }
                     }
                 }
-            }
-        }
-
-        stage('Helm Deploy Dev') {
-            steps {
-                sh """
-                echo "=== Déploiement avec Helm dans namespace dev ==="
-                helm upgrade --install ${IMAGE_NAME} ${HELM_CHART_DIR} -n dev \
-                    --set image.repository=${DOCKER_USER}/${IMAGE_NAME},image.tag=${IMAGE_TAG}
-                """
             }
         }
 
