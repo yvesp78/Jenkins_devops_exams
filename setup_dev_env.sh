@@ -14,8 +14,8 @@ NAMESPACES=("dev" "qa" "staging" "prod")
 echo "=== Vérification installation Git ==="
 if ! command -v git &> /dev/null; then
   echo "Git non installé. Installation..."
-  sudo apt-get update -y
-  sudo apt-get install -y git
+  apt-get update -y
+  apt-get install -y git
   echo "Git installé ✅"
 else
   echo "Git déjà installé ✅"
@@ -25,29 +25,19 @@ fi
 echo "=== Vérification installation Docker ==="
 if ! command -v docker &> /dev/null; then
   echo "Docker non installé. Installation..."
-  sudo apt-get update -y
-  sudo apt-get install -y ca-certificates curl gnupg lsb-release
-  sudo mkdir -p /etc/apt/keyrings
-  curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+  apt-get update -y
+  apt-get install -y ca-certificates curl gnupg lsb-release
+  mkdir -p /etc/apt/keyrings
+  curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
   echo \
     "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-    $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-  sudo apt-get update -y
-  sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+  apt-get update -y
+  apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
   echo "Docker installé ✅"
 else
   echo "Docker déjà installé ✅"
 fi
-
-# Ajout Jenkins au groupe Docker
-echo "=== Ajout de Jenkins au groupe docker ==="
-sudo usermod -aG docker $JENKINS_USER || true
-echo "⚠️ Redémarrez Jenkins pour appliquer le changement."
-
-# Activation Docker
-echo "=== Activation du service Docker ==="
-sudo systemctl enable --now docker
-sudo systemctl status docker --no-pager
 
 # === Vérification k3s ===
 echo "=== Vérification installation Kubernetes (k3s) ==="
