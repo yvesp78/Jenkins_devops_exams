@@ -36,18 +36,6 @@ pipeline {
                     sh """
                     echo "=== Construction et démarrage des conteneurs via docker-compose ==="
                     docker compose up -d
-
-                    echo "⏱️ Attente que le conteneur ${SERVICE_NAME} soit en running..."
-                    CONTAINER_ID=\$(docker compose ps -q ${SERVICE_NAME})
-                    if [ -z "\$CONTAINER_ID" ]; then
-                        echo "❌ Conteneur ${SERVICE_NAME} non trouvé"
-                        exit 1
-                    fi
-
-                    until [ \$(docker inspect -f '{{.State.Running}}' \$CONTAINER_ID) = "true" ]; do
-                        sleep 2
-                    done
-                    echo "✅ Conteneur ${SERVICE_NAME} en running"
                     """
                 }
             }
