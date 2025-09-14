@@ -5,8 +5,8 @@ pipeline {
         GITHUB_REPO = "https://github.com/yvesp78/Jenkins_devops_exams.git"
         APP_DIR = "app"
         DOCKER_USER = "monuser"
-        IMAGE_NAME = "examen-app"
-        IMAGE_TAG = "1.0.0"
+        DOCKER_IMAGE = "examen-app"
+        DOCKER_TAG = "1.0.0"
         HELM_CHART_DIR = "helm-chart"
         JENKINS_USER = "jenkins"
         SERVICE_NAME = "web"
@@ -21,18 +21,17 @@ pipeline {
             stages {
                 stage('Cleanup Docker Containers') {
                     steps {
-                        sh """
+                        sh '''
                         echo "=== Arrêt et suppression de tous les conteneurs Docker existants ==="
-                        CONTAINERS=\$(docker ps -aq)
-                        if [ ! -z "\$CONTAINERS" ]; then
-                            echo "⚠️ Conteneurs détectés, arrêt en cours..."
-                            docker stop \$CONTAINERS
-                            docker rm \$CONTAINERS
+                        CONTAINERS=$(docker ps -aq)
+                        if [ ! -z "$CONTAINERS" ]; then
+                            docker stop $CONTAINERS
+                            docker rm $CONTAINERS
                             echo "✅ Tous les conteneurs arrêtés et supprimés"
                         else
                             echo "✅ Aucun conteneur à arrêter"
                         fi
-                        """
+                        '''
                     }
                 }
 
@@ -44,20 +43,20 @@ pipeline {
 
                 stage('Setup Environment') {
                     steps {
-                        sh """
+                        sh '''
                         chmod +x ./setup_dev_env.sh
                         ./setup_dev_env.sh
-                        """
+                        '''
                     }
                 }
 
                 stage('Docker Compose Up') {
                     steps {
                         dir("${APP_DIR}") {
-                            sh """
+                            sh '''
                             echo "=== Construction et démarrage des conteneurs via docker-compose ==="
                             docker compose up -d
-                            """
+                            '''
                         }
                     }
                 }
@@ -108,23 +107,91 @@ pipeline {
             stages {
                 stage('API Tests') {
                     steps {
-                        sh """
+                        sh '''
                         echo "=== Installation des dépendances Python ==="
                         python3 -m pip install --upgrade pip
                         pip3 install -r requirements.txt
 
                         echo "=== Lancement des tests API ==="
                         python3 api_test.py
-                        """
+                        '''
                     }
                 }
             }
         }
 
-        // ===================== APPROVAL =====================
-        stage('approval') {
+        // ===================== DOCKER PUSH =====================
+        stage('Docker Push') {
+            environment {
+                DOCKER_PASS = credentials("DOCKER_HUB_PASS")
+            }
             steps {
-                input message: "Valider le déploiement en production ?", ok: "Déployer"
+                script {
+                    sh '''
+                    docker login -u ${DOCKER_USER} -p $DOCKER_PASS
+                    docker push ${DOCKER_USER}/${DOCKER_IMAGE}:${DOCKER_TAG}
+                    '''
+                }
+            }
+        }
+
+        // ===================== DEPLOYMENT =====================
+        stage('Deploiement en dev') {
+            environment {
+                KUBECONFIG = credentials("config")
+            }
+            steps {
+                script {
+                    sh '''
+                    # === Définir l'architecture et découpage micro-services ici avant déploiement ===
+                    rm -Rf .kube
+                    mkdir .kube
+                    cat $KUBECONFIG > .kube/config
+                    cp fastapi/values.yaml values.yml
+                    sed -i "s+tag.*+tag: ${DOCKER_TAG}+g" values.yml
+                    helm upgrade --install app fastapi --values=values.yml --namespace dev
+                    '''
+                }
+            }
+        }
+
+        stage('Deploiement en staging') {
+            environment {
+                KUBECONFIG = credentials("config")
+            }
+            steps {
+                script {
+                    sh '''
+                    rm -Rf .kube
+                    mkdir .kube
+                    cat $KUBECONFIG > .kube/config
+                    cp fastapi/values.yaml values.yml
+                    sed -i "s+tag.*+tag: ${DOCKER_TAG}+g" values.yml
+                    helm upgrade --install app fastapi --values=values.yml --namespace staging
+                    '''
+                }
+            }
+        }
+
+        stage('Deploiement en prod') {
+            when {
+                branch 'main' // Se déploie seulement si on est sur la branche main
+            }
+            environment {
+                KUBECONFIG = credentials("config")
+            }
+            steps {
+                input message: 'Voulez-vous déployer en production ?', ok: 'Oui'
+                script {
+                    sh '''
+                    rm -Rf .kube
+                    mkdir .kube
+                    cat $KUBECONFIG > .kube/config
+                    cp fastapi/values.yaml values.yml
+                    sed -i "s+tag.*+tag: ${DOCKER_TAG}+g" values.yml
+                    helm upgrade --install app fastapi --values=values.yml --namespace prod
+                    '''
+                }
             }
         }
 
