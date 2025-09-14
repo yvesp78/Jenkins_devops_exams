@@ -49,7 +49,7 @@ pipeline {
                                 def retries = 24  // 24 x 5sec = 2 minutes
                                 while(retries > 0 && !success) {
                                     def httpCode = sh(
-                                        script: 'curl -s -o /dev/null -w "%{http_code}" http://localhost:8085',
+                                        script: 'curl -s -o /dev/null -w "%{http_code}" http://63.35.53.134:8085/api/v1/movies/docs',
                                         returnStdout: true
                                     ).trim()
                                     if (httpCode == "200") {
