@@ -33,19 +33,9 @@ pipeline {
                 dir("${APP_DIR}") {
                     sh """
                     echo "=== Construction des images via docker-compose ==="
-                    docker-compose build
+                    docker compose up
                     """
                 }
-            }
-        }
-
-        stage('Deploy DEV with Helm') {
-            steps {
-                sh """
-                echo "=== Déploiement sur namespace dev avec Helm ==="
-                helm upgrade --install ${IMAGE_NAME} ${HELM_CHART_DIR} -n dev \
-                  --set image.repository=${DOCKER_USER}/${IMAGE_NAME},image.tag=${IMAGE_TAG}
-                """
             }
         }
 
