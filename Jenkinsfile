@@ -4,7 +4,7 @@ pipeline {
     environment {
         GITHUB_REPO = "https://github.com/yvesp78/Jenkins_devops_exams.git"
         APP_DIR = "app"
-        DOCKER_USER = "monuser"
+        DOCKER_USER = "yvesp78"
         DOCKER_IMAGE = "examen-app"
         DOCKER_TAG = "1.0.0"
         HELM_CHART_DIR = "helm-chart"
