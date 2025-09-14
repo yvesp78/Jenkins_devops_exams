@@ -132,8 +132,16 @@ pipeline {
                         echo "=== Build de l'image via Docker Compose ==="
                         docker compose build
 
+                        echo "=== Récupération du nom réel de l'image générée par Docker Compose ==="
+                        IMAGE_ID=\$(docker images --format '{{.Repository}}:{{.Tag}}' | grep "${APP_DIR}_${SERVICE_NAME}:latest")
+
+                        if [ -z "\$IMAGE_ID" ]; then
+                            echo "❌ Impossible de trouver l'image générée par docker compose"
+                            exit 1
+                        fi
+
                         echo "=== Tag de l'image pour DockerHub ==="
-                        docker tag ${SERVICE_NAME} ${DOCKER_USER}/${DOCKER_IMAGE}:${DOCKER_TAG}
+                        docker tag \$IMAGE_ID ${DOCKER_USER}/${DOCKER_IMAGE}:${DOCKER_TAG}
 
                         echo "=== Login DockerHub ==="
                         echo $DOCKER_PASS | docker login -u ${DOCKER_USER} --password-stdin
